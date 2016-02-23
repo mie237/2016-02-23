@@ -1,0 +1,175 @@
+---
+title: 'MIE237'
+author: "Neil Montgomery"
+date: "2016-02-02"
+output: 
+  ioslides_presentation: 
+    css: 'styles.css' 
+    widescreen: true 
+    transition: 0.001
+---
+\newcommand{\Var}[1]{\text{Var}\left( #1 \right)}
+\newcommand{\E}[1]{E\left( #1 \right)}
+\newcommand{\Sample}[1]{#1_1,\ldots,#1_n}
+\newcommand{\od}[2]{\overline #1_{#2\cdot}}
+\newcommand{\flist}[2]{\{#1_1, #1_2, \ldots, #1_#2\}}
+\newcommand{\samp}[2]{#1_1, #1_2, \ldots, #1_#2}
+\renewcommand{\bar}[1]{\overline{#1}}
+\newcommand{\ve}{\varepsilon}
+\newcommand{\bs}[1]{\boldsymbol{#1}}
+
+
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE)
+```
+
+# regression
+
+## The sum of squares decomposition revisited
+
+$$\begin{align}
+SST &= \sum_{i=1}^n\left(\hat y_i - \overline y\right)^2 +
+\sum_{i=1}^n\left(y_i - \hat y_i\right)^2\\
+&= SSR + SSE
+\end{align}$$
+
+They are all sums of squares of normal distributions, so they have $\chi^2$ distributions with degrees of freedom: $n-1$, $1$, and $n-2$, respectively. 
+
+In addition, $SSR$ and $SSE$ are independent, so that:
+$$\frac{SSR/1}{SSE/(n-2)} \sim F_{1, n-1}$$
+
+## Hypothesis test for the slope parameter - revisited
+
+Main hypothesis test: $H_0:\beta_1=0$ versus $H_1:\beta_1\ne 0$. 
+
+Key fact 1:
+$$T=\frac{\hat\beta_1 - \beta_1}{\sqrt{MSE}/\sqrt{S_{xx}}}\sim t_{n-2}$$
+
+Key fact 2:
+$$F = \frac{SSR/1}{SSE/(n-2)} \sim F_{1, n-1}$$
+
+(And actually *in the case of simple regression* $T^2 = F$ (algebraically!). The p-value will be *identical*.)
+
+## Example - simulated from 2016-02-02
+
+```{r, echo=FALSE, message=FALSE}
+library(dplyr)
+library(ggplot2)
+
+x <- 1:20/10
+sigma <- 3
+set.seed(1)
+y <- 5 + 2*x + rnorm(length(x), 0, sigma)
+
+regr_data <- data.frame(x=x, y=y)
+
+regr_lm <- lm(y ~ x, regr_data)
+
+summary(regr_lm)
+```
+
+## More from 2016-02-03
+
+```{r}
+anova(regr_lm)
+```
+
+## Example from 2015 exam (2016-02-05)
+
+```{r, message=FALSE}
+library(dplyr)
+rust_level <- function(x) {
+  rust <- c("low", "medium", "high")
+  if(x < 100) {
+    r <- sample(rust, 1, prob=c(0.6, 0.3, 0.1))
+  } else if(x < 140) {
+    r <- sample(rust, 1, prob=c(0.2, 0.6, 0.2))
+  } else {
+    r <- sample(rust, 1, prob=c(0.1, 0.3, 0.6))
+  }
+}
+
+set.seed(1)
+n <- 400
+error <- rnorm(n, 0, 1)
+
+age <- round(rnorm(n, 120, 20), 0)
+max_kpa <- 200 + 50*rbeta(n, 2, 1)
+min_kpa <- 400 - max_kpa + rnorm(n,0, 10)
+tot_gas <- age*400 + rweibull(n, 2, 10000)
+rust <- factor(sapply(age, rust_level), levels=c("low", "medium", "high"), ordered=T)
+brand <- factor(sample(c("A", "B"), n, repl=T, prob=c(0.3, 0.7)))
+volts <- -10 + 
+  0.005 * tot_gas/age + 
+  0.02 * max_kpa - 
+  0.02 * min_kpa + 
+  0.29 * as.numeric(rust) + 
+  0.07 * as.numeric(brand) + 
+  error
+
+meters <- data.frame(age, max_kpa, min_kpa, tot_gas, volts, rust, brand)
+k_lm <- lm(volts ~ max_kpa, data = meters)
+summary(k_lm)
+```
+
+## More from 2015 exam
+
+```{r}
+anova(k_lm)
+```
+
+Note that the $T^2 = F$ is a bit of mathematcal trivia that applies in simple regression only. 
+
+## New topic: $R^2$ { .build }
+
+The "fit" of a linear model can be summarized by a single number (!):
+
+$$\begin{align*}
+SST &= SSR + SSE \\
+1 &= \frac{SSR}{SST} + \frac{SSE}{SST}\\
+R^2 &= \frac{SSR}{SST}\end{align*}$$
+
+This is a moderately useful number that also goes by a unfortunately dramatic-sounding "coefficient of determination" and can be interpreted as "the proportion of variation explained by the model". 
+
+But in the end it is just a single number that summarizes an *entire bivariate linear relationship*, so don't take it too seriously. 
+
+## More examples
+
+```{r, message=FALSE, fig.height = 3, fig.width = 3}
+library(dplyr)
+library(ggplot2)
+set.seed(2)
+n <- 40
+x <- seq(1, 10, length.out = n)
+y1 <-  1 + x + rnorm(n, 0, 0.1)
+data.frame(x, y1) %>% 
+  ggplot(aes(x=x, y=y1)) + geom_point() + labs(title = paste0(expression(R^2), " = ", cor(x, y1)^2))
+
+y2 <- 1 + x + rnorm(n, 0, 1)
+data.frame(x, y2) %>% 
+  ggplot(aes(x=x, y=y2)) + geom_point() + labs(title = paste0(expression(R^2), " = ", cor(x, y2)^2))
+
+y3 <- 1 + x + rnorm(n, 0, 5)
+data.frame(x, y3) %>% 
+  ggplot(aes(x=x, y=y3)) + geom_point() + labs(title = paste0(expression(R^2), " = ", cor(x, y3)^2))
+
+```
+
+## Limitations: "Model assumptions"
+
+Assumes linear model is appropriate to begin with.
+
+```{r, fig.height = 4, fig.width = 4}
+set.seed(5)
+y4 <- 1 + x + rnorm(n, 0, 2)
+data.frame(x, y4) %>% 
+  ggplot(aes(x=x, y=y4)) + geom_point() + labs(title = paste0(expression(R^2), " = ", cor(x, y4)^2)) 
+
+y5 <- 20 - (x - 8)^2 + rnorm(n, 0, 8)
+data.frame(x, y5) %>% 
+  ggplot(aes(x=x, y=y5)) + geom_point() + labs(title = paste0(expression(R^2), " = ", cor(x, y5)^2)) 
+```
+
+## Limitations: sample size
+
